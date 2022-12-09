@@ -6,19 +6,19 @@ object Effects {
   // substitution
 
   def combine(a: Int, b: Int): Int = a + b
-  val five = combine(2, 3)
-  val five_v2 = 2 + 3
+  val five                         = combine(2, 3)
+  val five_v2                      = 2 + 3
 
   // referential transparency = can replace an expression with its value
   // as many times as we want without changing behavior
 
   // example : print to the console
-  val printSomething: Unit = println("Cats Effect")
+  val printSomething: Unit    = println("Cats Effect")
   val printSomething_v2: Unit = ()
 
   // example : change a variable
-  var anInt = 0
-  val changingVar: Unit = (anInt += 1)
+  var anInt                = 0
+  val changingVar: Unit    = (anInt += 1)
   val changingVar_v2: Unit = () // not the same
 
   // side effects are inevitable for useful programs
@@ -65,7 +65,44 @@ object Effects {
     42
   })
 
+  /** Exercises
+    *   1. An IO which returns the current time of the system 2. An IO which 2.
+    *      measures the duration of a computation 3. An IO that prints something
+    *      to the console 4. An IO which reads a line (a string) from the std
+    *      input
+    */
+
+  // 1
+  val currentTime: MyIO[Long] =
+    MyIO(() => System.currentTimeMillis)
+
+  // 2
+  def measure[A](computation: MyIO[A]): MyIO[Long] =
+    for {
+      start <- currentTime
+      _     <- computation
+      end   <- currentTime
+    } yield end - start
+
+  def withMeasure[A](computation: MyIO[A]): MyIO[A] =
+    for {
+      start <- currentTime
+      a     <- computation
+      end   <- currentTime
+      _     <- consolePutStrLn(s"Computation took ${end - start} millis")
+    } yield a
+  // 3
+  def consolePutStrLn(str: String): MyIO[Unit] =
+    MyIO(() => println(str))
+
+  // 4
+  import scala.io.StdIn
+
+  val readLine: MyIO[String] =
+    MyIO(() => StdIn.readLine())
+
   def main(args: Array[String]): Unit = {
-    anIO.flatMap(x => MyIO(() => x + 1)).unsafeRun()
+    
+    withMeasure(MyIO(() => Thread.sleep(2000))).unsafeRun()
   }
 }
