@@ -34,10 +34,73 @@ object IOIntroduction {
   def smallProgram_v2(): IO[Unit] =
     (IO(StdIn.readLine()), IO(StdIn.readLine())).mapN(_ + _).map(println)
 
+  /*
+   * Exercises
+   */
+
+  // 1 - sequence two IOs and take the result of the LAST one
+  def sequenceTakeLast[A, B](ioa: IO[A], iob: IO[B]): IO[B] =
+    ioa.flatMap(_ => iob)
+
+  // 2 - sequence two IOs and take the result of the FIRST one
+  def sequenceTakeFirst[A, B](ioa: IO[A], iob: IO[B]): IO[A] =
+    for {
+      a <- ioa
+      _ <- iob
+    } yield a
+
+  // 3 - repeat an IO effect forever
+  def forever[A](io: IO[A]): IO[A] =
+    io.flatMap(_ => forever(io))
+
+  // 4 - convert an IO to a different type
+  def convert[A, B](ioa: IO[A], value: B): IO[B] =
+    ioa.map(_ => value)
+
+  // 5 - discard value inside an IO, just return Unit
+  def asUnit[A](ioa: IO[A]): IO[Unit] =
+    ioa.map(_ => ())
+
+  // 6 - fix stack recursion
+  def sum(n: Int): Int =
+    if (n <= 0) 0
+    else n + sum(n - 1)
+
+  def sumIO(n: Int): IO[BigInt] =
+    if (n <= 0) IO(BigInt(n))
+    else
+      for {
+        x   <- IO(BigInt(n))
+        sum <- sumIO(n - 1)
+      } yield x + sum
+
+  val cache: scala.collection.mutable.Map[Int, BigInt] =
+    scala.collection.mutable.Map()
+
+  def fromCacheOrCompute(n: Int) =
+    cache
+      .get(n)
+      .fold {
+        fibonacci(n)
+          .flatTap(computed => IO(cache.put(n, computed)))
+      }(IO(_))
+
+  def fibonacci(n: Int): IO[BigInt] =
+    n match
+      case 1 => IO(BigInt(0))
+      case 2 => IO(BigInt(1))
+      case _ =>
+        for {
+          twoBehind <- fromCacheOrCompute(n - 2)
+          prev      <- fromCacheOrCompute(n - 1)
+        } yield twoBehind + prev
+
   def main(args: Array[String]): Unit = {
     import cats.effect.unsafe.implicits.global // "platform"
 
     // "end of the world"
-    println(smallProgram().unsafeRunSync())
+    (1 to 100).foreach(i =>
+      fibonacci(i).map(xx => println(s"$i - $xx")).unsafeRunSync()
+    )
   }
 }
