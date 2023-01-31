@@ -1,4 +1,4 @@
-package com.rockthejvm.part2effects
+package com.rockthejvm.utils
 
 import cats.effect.IO
 
