@@ -6,6 +6,7 @@ import cats.Traverse
 import cats.instances.list._
 import scala.concurrent.Future
 import scala.util.Random
+import com.rockthejvm.utils.debug
 
 object IOTraversal extends IOApp.Simple {
 
