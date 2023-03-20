@@ -7,6 +7,7 @@ import scala.concurrent.duration._
 import java.util.Scanner
 import java.io.FileReader
 import java.io.File
+import cats.effect.kernel.Resource
 
 object Resources extends IOApp.Simple {
 
@@ -61,6 +62,53 @@ object Resources extends IOApp.Simple {
       }
     } yield ()
 
+  /** Resources
+    */
+  def connFromConfig(path: String): IO[Unit] =
+    openFileScanner(path)
+      .bracket { scanner =>
+        // acquire a connection based on the file
+        IO(new Connection(scanner.nextLine())).bracket { conn =>
+          conn.`open`().debug >> IO.never
+        }(conn => conn.close().debug.void)
+      }(scanner =>
+        IO("closing file").debug >> IO(scanner.close())
+      ) // nesting resources are tedious
+
+  val connectionResource =
+    Resource.make(IO(new Connection("rockthejvm.com")))(conn =>
+      conn.close().void
+    )
+
+  val resourceFetchUrl = for {
+    fib <- connectionResource.use(conn => conn.`open`() >> IO.never).start
+    _   <- IO.sleep(1.second) >> fib.cancel
+  } yield ()
+
+  // resources are equivalent to brackets
+  val simpleResource = IO("some resource")
+  val usingResource: String => IO[String] = string =>
+    IO(s"using the string $string").debug
+  val releaseResource: String => IO[Unit] = string =>
+    IO(s"finalizing the string: $string").debug.void
+
+  val usingResourceWithBracket =
+    simpleResource.bracket(usingResource)(releaseResource)
+  val usingResourceWithResource =
+    Resource.make(simpleResource)(releaseResource).use(usingResource)
+
+  /** Exercise: read a text file with one line every 100 millis, using Resource
+    */
+  def getResourceFromFile(path: String) =
+    Resource.make(openFileScanner(path))(scanner => IO(scanner.close()))
+
+  def resourceExercise(path: String) =
+    getResourceFromFile(path)
+      .use { scanner =>
+        (IO(scanner.nextLine()).debug <* IO.sleep(100.millis))
+          .iterateWhile(_ => scanner.hasNext)
+      }
+
   override def run: IO[Unit] =
-     bracketReadFile("src/main/scala/com/rockthejvm/part3concurrency/Resources.scala")
+    resourceExercise("src/main/scala/com/rockthejvm/part3concurrency/Resources.scala").void
 }
