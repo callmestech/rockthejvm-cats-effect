@@ -3,10 +3,11 @@ package com.rockthejvm.part3concurrency
 import cats.effect.IOApp
 import cats.effect.IO
 import com.rockthejvm.utils.debug
-import scala.concurrent.duration._
+import scala.concurrent.duration.*
 import java.util.Scanner
 import java.io.FileReader
 import java.io.File
+import cats.effect.kernel.Outcome.*
 import cats.effect.kernel.Resource
 
 object Resources extends IOApp.Simple {
@@ -46,7 +47,7 @@ object Resources extends IOApp.Simple {
     *   - open a scanner
     *   - read the file line by line, every 100 millis
     *   - close the scanner
-    *   - if canelled/throws error, close the scanner
+    *   - if cancelled/throws error, close the scanner
     */
   def openFileScanner(path: String): IO[Scanner] =
     IO(new Scanner(new FileReader(new File(path))))
@@ -109,6 +110,47 @@ object Resources extends IOApp.Simple {
           .iterateWhile(_ => scanner.hasNext)
       }
 
+  def connectionFromConfResource(path: String) =
+    Resource
+      .make(IO("opening file").debug >> openFileScanner(path)) { scanner =>
+        IO("closing file").debug >> IO(scanner.close())
+      }
+      .flatMap { scanner =>
+        Resource.make(IO(new Connection(scanner.nextLine())))(_.close().void)
+      }
+
+  def connFromConfResourceClean(path: String) =
+    for {
+      scanner <- Resource.make(
+        IO("opening file").debug >> openFileScanner(path)
+      ) { scanner => IO("closing file").debug >> IO(scanner.close()) }
+      conn <- Resource
+        .make(IO(new Connection(scanner.nextLine())))(_.close().void)
+    } yield conn
+
+  val openConnection = connectionFromConfResource(
+    "src/main/resources/connection.txt"
+  ).use(conn => conn.open() >> IO.never)
+
+  val cancelledConnection =
+    for {
+      fib <- openConnection.start
+      _   <- IO.sleep(1.second) >> IO("cancelling!").debug >> fib.cancel
+    } yield ()
+
+  // connection + file will close automatically
+
+  // finalizers to regular IOs
+  val ioWithFinalizer =
+    IO("some resource").debug.guarantee(IO("freeing resource").debug.void)
+
+  val ioWithFinalizer_v2 = IO("some resource").debug.guaranteeCase {
+    case Succeeded(fa) =>
+      fa.flatMap(result => IO(s"releasing resource: $result").debug).void
+    case Errored(e) => IO("nothing to release")
+    case Canceled() =>
+      IO("resource got canceled, releasing what's left").debug.void
+  }
   override def run: IO[Unit] =
-    resourceExercise("src/main/scala/com/rockthejvm/part3concurrency/Resources.scala").void
+    cancelledConnection
 }
