@@ -12,6 +12,11 @@
 .idea/**/usage.statistics.xml
 .idea/**/dictionaries
 .idea/**/shelf
+.idea/**/misc.xml
+
+.idea/modules/
+.idea
+.bsp
 
 # AWS User-specific
 .idea/**/aws.xml
