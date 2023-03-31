@@ -18,7 +18,7 @@ object Resources extends IOApp.Simple {
     def close(): IO[String] = IO(s"closing connection to $url").debug
   }
 
-  val asyncFetchUrl =
+  val asyncFetchUrl: IO[Unit] =
     for {
       fib <- (new Connection("rockthejvm.com").open() *> IO.sleep(
         Int.MaxValue.seconds
@@ -27,7 +27,7 @@ object Resources extends IOApp.Simple {
     } yield ()
     // problem: leaking resources
 
-  val correctAsyncFetchUrl =
+  val correctAsyncFetchUrl: IO[Unit] =
     for {
       conn <- IO(new Connection("rockthejvm.com"))
       fib <- (conn.open() *> IO.sleep(Int.MaxValue.seconds))
@@ -38,7 +38,7 @@ object Resources extends IOApp.Simple {
 
   // bracket pattern: someIO.bracket(useResourceCb)(releaseResourceCb)
   // bracket is equivalent to try-catches (pure FP)
-  val bracketFetchUrl = IO(new Connection("rockthejvm.com"))
+  val bracketFetchUrl: IO[Unit] = IO(new Connection("rockthejvm.com"))
     .bracket(conn => conn.open() *> IO.sleep(Int.MaxValue.seconds))(conn =>
       conn.close().void
     )
@@ -76,12 +76,12 @@ object Resources extends IOApp.Simple {
         IO("closing file").debug >> IO(scanner.close())
       ) // nesting resources are tedious
 
-  val connectionResource =
+  val connectionResource: Resource[IO, Connection] =
     Resource.make(IO(new Connection("rockthejvm.com")))(conn =>
       conn.close().void
     )
 
-  val resourceFetchUrl = for {
+  val resourceFetchUrl: IO[Unit] = for {
     fib <- connectionResource.use(conn => conn.`open`() >> IO.never).start
     _   <- IO.sleep(1.second) >> fib.cancel
   } yield ()
@@ -110,7 +110,7 @@ object Resources extends IOApp.Simple {
           .iterateWhile(_ => scanner.hasNext)
       }
 
-  def connectionFromConfResource(path: String) =
+  def connectionFromConfResource(path: String): Resource[IO, Connection] =
     Resource
       .make(IO("opening file").debug >> openFileScanner(path)) { scanner =>
         IO("closing file").debug >> IO(scanner.close())
@@ -119,7 +119,7 @@ object Resources extends IOApp.Simple {
         Resource.make(IO(new Connection(scanner.nextLine())))(_.close().void)
       }
 
-  def connFromConfResourceClean(path: String) =
+  def connFromConfResourceClean(path: String): Resource[IO, Connection] =
     for {
       scanner <- Resource.make(
         IO("opening file").debug >> openFileScanner(path)
@@ -128,11 +128,11 @@ object Resources extends IOApp.Simple {
         .make(IO(new Connection(scanner.nextLine())))(_.close().void)
     } yield conn
 
-  val openConnection = connectionFromConfResource(
+  val openConnection: IO[Nothing] = connectionFromConfResource(
     "src/main/resources/connection.txt"
   ).use(conn => conn.open() >> IO.never)
 
-  val cancelledConnection =
+  val cancelledConnection: IO[Unit] =
     for {
       fib <- openConnection.start
       _   <- IO.sleep(1.second) >> IO("cancelling!").debug >> fib.cancel
@@ -141,13 +141,13 @@ object Resources extends IOApp.Simple {
   // connection + file will close automatically
 
   // finalizers to regular IOs
-  val ioWithFinalizer =
+  val ioWithFinalizer: IO[String] =
     IO("some resource").debug.guarantee(IO("freeing resource").debug.void)
 
-  val ioWithFinalizer_v2 = IO("some resource").debug.guaranteeCase {
+  val ioWithFinalizer_v2: IO[String] = IO("some resource").debug.guaranteeCase {
     case Succeeded(fa) =>
       fa.flatMap(result => IO(s"releasing resource: $result").debug).void
-    case Errored(e) => IO("nothing to release")
+    case Errored(e) => IO("nothing to release").debug.void
     case Canceled() =>
       IO("resource got canceled, releasing what's left").debug.void
   }
