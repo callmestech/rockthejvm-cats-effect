@@ -21,11 +21,11 @@ object IOIntroduction {
   val improvedMeaningOfLife = ourFirstIO.map(_ * 2)
   val printedMeaningOfLife  = ourFirstIO.flatMap(mol => IO.delay(println(mol)))
 
-  def smallProgram(): IO[Unit] = for {
+  def smallProgram(): IO[Unit] = for
     line1 <- IO(StdIn.readLine())
     line2 <- IO(StdIn.readLine())
     _     <- IO.delay(println(line1 + line2))
-  } yield ()
+  yield ()
 
   // mapN - combine IO effects as tuples
   import cats.syntax.apply._
@@ -44,10 +44,10 @@ object IOIntroduction {
 
   // 2 - sequence two IOs and take the result of the FIRST one
   def sequenceTakeFirst[A, B](ioa: IO[A], iob: IO[B]): IO[A] =
-    for {
+    for
       a <- ioa
       _ <- iob
-    } yield a
+    yield a
 
   // 3 - repeat an IO effect forever
   def forever[A](io: IO[A]): IO[A] =
@@ -63,16 +63,16 @@ object IOIntroduction {
 
   // 6 - fix stack recursion
   def sum(n: Int): Int =
-    if (n <= 0) 0
+    if n <= 0 then 0
     else n + sum(n - 1)
 
   def sumIO(n: Int): IO[BigInt] =
-    if (n <= 0) IO(BigInt(n))
+    if n <= 0 then IO(BigInt(n))
     else
-      for {
+      for
         x   <- IO(BigInt(n))
         sum <- sumIO(n - 1)
-      } yield x + sum
+      yield x + sum
 
   val cache: scala.collection.mutable.Map[Int, BigInt] =
     scala.collection.mutable.Map()
@@ -90,10 +90,10 @@ object IOIntroduction {
       case 1 => IO(BigInt(0))
       case 2 => IO(BigInt(1))
       case _ =>
-        for {
+        for
           twoBehind <- fromCacheOrCompute(n - 2)
           prev      <- fromCacheOrCompute(n - 1)
-        } yield twoBehind + prev
+        yield twoBehind + prev
 
   def main(args: Array[String]): Unit = {
     import cats.effect.unsafe.implicits.global // "platform"

@@ -10,7 +10,7 @@ object Essentials {
   val aBoolean: Boolean = false
 
   // expressions are EVALUATED to a value
-  val anIfExpression = if (2 > 3) "bigger" else "smaller"
+  val anIfExpression = if 2 > 3 then "bigger" else "smaller"
 
   // instructions vs expressions
   val theUnit = println("Hello, Scala") // Unit = "void" in other languages
@@ -50,10 +50,10 @@ object Essentials {
 
   // for-comprehensions
   val checkerboard = List(1,2,3).flatMap(n => List('a', 'b', 'c').map(c => (n, c)))
-  val anotherCheckerboard = for {
+  val anotherCheckerboard = for
     n <- List(1, 2, 3)
     c <- List('a', 'b', 'c')
-  } yield (n, c) // equivalent expression
+  yield (n, c) // equivalent expression
 
   // options and try
   val anOption: Option[Int] = Option(/* something that might be null */ 3) // Some(3)

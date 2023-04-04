@@ -2,7 +2,7 @@ package com.rockthejvm.part3concurrency
 
 import cats.effect.IOApp
 import cats.effect.IO
-import com.rockthejvm.utils.debug
+import com.rockthejvm.utils.*
 import scala.concurrent.duration.*
 import java.util.Scanner
 import java.io.FileReader
@@ -19,22 +19,22 @@ object Resources extends IOApp.Simple {
   }
 
   val asyncFetchUrl: IO[Unit] =
-    for {
+    for
       fib <- (new Connection("rockthejvm.com").open() *> IO.sleep(
         Int.MaxValue.seconds
       )).start
       _ <- IO.sleep(1.seconds) *> fib.cancel
-    } yield ()
+    yield ()
     // problem: leaking resources
 
   val correctAsyncFetchUrl: IO[Unit] =
-    for {
+    for
       conn <- IO(new Connection("rockthejvm.com"))
       fib <- (conn.open() *> IO.sleep(Int.MaxValue.seconds))
         .onCancel(conn.close().void)
         .start
       _ <- IO.sleep(1.seconds) *> fib.cancel
-    } yield ()
+    yield ()
 
   // bracket pattern: someIO.bracket(useResourceCb)(releaseResourceCb)
   // bracket is equivalent to try-catches (pure FP)
@@ -53,7 +53,7 @@ object Resources extends IOApp.Simple {
     IO(new Scanner(new FileReader(new File(path))))
 
   def bracketReadFile(path: String): IO[Unit] =
-    for {
+    for
       _ <- IO.println(s"opening file at $path")
       scanner <- openFileScanner(path).bracket { scanner =>
         (IO(scanner.nextLine()).debug <* IO.sleep(100.millis))
@@ -61,7 +61,7 @@ object Resources extends IOApp.Simple {
       } { scanner =>
         IO.println(s"closing file at $path") *> IO(scanner.close())
       }
-    } yield ()
+    yield ()
 
   /** Resources
     */
@@ -81,10 +81,10 @@ object Resources extends IOApp.Simple {
       conn.close().void
     )
 
-  val resourceFetchUrl: IO[Unit] = for {
+  val resourceFetchUrl: IO[Unit] = for
     fib <- connectionResource.use(conn => conn.`open`() >> IO.never).start
     _   <- IO.sleep(1.second) >> fib.cancel
-  } yield ()
+  yield ()
 
   // resources are equivalent to brackets
   val simpleResource = IO("some resource")
@@ -120,23 +120,23 @@ object Resources extends IOApp.Simple {
       }
 
   def connFromConfResourceClean(path: String): Resource[IO, Connection] =
-    for {
+    for
       scanner <- Resource.make(
         IO("opening file").debug >> openFileScanner(path)
       ) { scanner => IO("closing file").debug >> IO(scanner.close()) }
       conn <- Resource
         .make(IO(new Connection(scanner.nextLine())))(_.close().void)
-    } yield conn
+    yield conn
 
   val openConnection: IO[Nothing] = connectionFromConfResource(
     "src/main/resources/connection.txt"
   ).use(conn => conn.open() >> IO.never)
 
   val cancelledConnection: IO[Unit] =
-    for {
+    for
       fib <- openConnection.start
       _   <- IO.sleep(1.second) >> IO("cancelling!").debug >> fib.cancel
-    } yield ()
+    yield ()
 
   // connection + file will close automatically
 

@@ -13,10 +13,10 @@ object IOParallelism extends IOApp.Simple {
   val anisIO   = IO(s"[${Thread.currentThread().getName}] Ani")
   val kamranIO = IO(s"[${Thread.currentThread().getName}] Kamran")
 
-  val composedIO = for {
+  val composedIO = for
     ani    <- anisIO
     kamran <- kamranIO
-  } yield s"$ani and $kamran love Rock the JVM"
+  yield s"$ani and $kamran love Rock the JVM"
 
   val meaningOfLife: IO[Int] = IO.delay(42)
   val favLang: IO[String]    = IO.delay("Scala")

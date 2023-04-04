@@ -30,10 +30,10 @@ object ContextualAbstractionsScala3 {
   // synthesize given instances
   given optionCombiner[T](using combiner: Combiner[T]): Combiner[Option[T]] with {
     override def empty = Some(combiner.empty)
-    override def combine(x: Option[T], y: Option[T]): Option[T] = for {
+    override def combine(x: Option[T], y: Option[T]): Option[T] = for
       vx <- x
       vy <- y
-    } yield combiner.combine(vx, vy)
+    yield combiner.combine(vx, vy)
   }
 
   val sumOptions: Option[Int] = combineAll(List(Some(1), None, Some(2)))

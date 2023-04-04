@@ -78,19 +78,19 @@ object Effects {
 
   // 2
   def measure[A](computation: MyIO[A]): MyIO[Long] =
-    for {
+    for
       start <- currentTime
       _     <- computation
       end   <- currentTime
-    } yield end - start
+    yield end - start
 
   def withMeasure[A](computation: MyIO[A]): MyIO[A] =
-    for {
+    for
       start <- currentTime
       a     <- computation
       end   <- currentTime
       _     <- consolePutStrLn(s"Computation took ${end - start} millis")
-    } yield a
+    yield a
   // 3
   def consolePutStrLn(str: String): MyIO[Unit] =
     MyIO(() => println(str))

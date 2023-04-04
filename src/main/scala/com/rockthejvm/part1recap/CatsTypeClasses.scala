@@ -59,10 +59,10 @@ object CatsTypeClasses {
   import cats.Monad
   val monadList = Monad[List]
   def crossProduct_v2[F[_] : Monad, A, B](fa: F[A], fb: F[B]): F[(A, B)] =
-    for {
+    for
       a <- fa
       b <- fb
-    } yield (a, b)
+    yield (a, b)
 
   /*
          Functor -> FlatMap -->

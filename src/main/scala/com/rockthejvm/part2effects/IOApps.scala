@@ -6,11 +6,11 @@ import cats.effect.IOApp
 import cats.effect.ExitCode
 
 object IOApps {
-  val program = for {
+  val program = for
     _    <- IO(println("keke"))
     line <- IO(StdIn.readLine())
     _    <- IO(println(s"You have written ${line}"))
-  } yield ()
+  yield ()
 
   object TestApp {
 

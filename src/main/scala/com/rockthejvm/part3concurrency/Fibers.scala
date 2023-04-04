@@ -14,10 +14,10 @@ object Fibers extends IOApp.Simple {
   val meaningOfLife: IO[Int] = IO.pure(42)
   val favLang                = IO.pure("Scala")
 
-  def sameThreadIOs() = for {
+  def sameThreadIOs() = for
     _ <- meaningOfLife.debug
     _ <- favLang.debug
-  } yield ()
+  yield ()
 
   def createFiber: Fiber[IO, Throwable, String] = ???
 
@@ -25,17 +25,17 @@ object Fibers extends IOApp.Simple {
   // the fiber is not actually started, but the allocation is wrapped in another effect
   val aFiber: IO[FiberIO[Int]] = meaningOfLife.debug.start
 
-  def differentThreadIOs() = for {
+  def differentThreadIOs() = for
     _ <- aFiber
     _ <- favLang.debug
-  } yield ()
+  yield ()
 
   // joining a fiber
   def runOnSomeOtherThread[A](io: IO[A]): IO[Outcome[IO, Throwable, A]] =
-    for {
+    for
       fib    <- io.start
       result <- fib.join // an effect which waits for the fiber to terminate
-    } yield result
+    yield result
 
     /*
      *  possible outcomes
@@ -57,24 +57,24 @@ object Fibers extends IOApp.Simple {
   }
 
   def throwOnAnotherThread() =
-    for {
+    for
       fib <- IO.raiseError[Int](new RuntimeException("no number for you")).start
       result <- fib.join
-    } yield result
+    yield result
 
   def testCancel() = {
     val task = IO("starting").debug >> IO.sleep(1.second) >> IO("done").debug
     val taskWithCancellationHandler =
       task.onCancel(IO("I'm being cancelled").debug.void)
 
-    for {
+    for
       fib <- taskWithCancellationHandler.start // on a separate thread
       _ <- IO.sleep(500.millis) >> IO(
         "cancelling"
       ).debug // running on the calling thread
       _   <- fib.cancel
       res <- fib.join
-    } yield res
+    yield res
   }
 
   /** Exercises
@@ -86,7 +86,7 @@ object Fibers extends IOApp.Simple {
     */
 
   def processResultsFromFiber[A](io: IO[A]): IO[A] =
-    for {
+    for
       fiber <- io.debug.start
       result <- fiber.join.flatMap {
         case Succeeded(fa) => fa
@@ -95,7 +95,7 @@ object Fibers extends IOApp.Simple {
           IO.raiseError(new RuntimeException("Computation cancelled"))
       }
 
-    } yield result
+    yield result
 
   /** 2. Write a function that takes two IOs, runs them on a different fibers
     * and returns an IO with a tuple containing both result:
@@ -107,7 +107,7 @@ object Fibers extends IOApp.Simple {
     *   - if one (or both) cancelled, raise a RuntimeException
     */
   def tupleIOs[A, B](ioa: IO[A], iob: IO[B]): IO[(A, B)] =
-    for {
+    for
       fiberA <- ioa.start
       fiberB <- iob.start
       resA   <- fiberA.join
@@ -122,7 +122,7 @@ object Fibers extends IOApp.Simple {
         case _ =>
           IO.raiseError(new RuntimeException("Both fibers were cancelled"))
       }
-    } yield res
+    yield res
 
   /** 3. Write a function that adds a timeout to an IO:
     *   - IO runs a fiber
@@ -134,11 +134,11 @@ object Fibers extends IOApp.Simple {
     *     - a RuntimeException if it times out (i.e. cancelled by the timeout)
     */
   def timeout[A](io: IO[A], duration: FiniteDuration): IO[A] = {
-    val computation = for {
+    val computation = for
       fib <- io.start
       _ <- (IO.sleep(duration) >> fib.cancel).start // careful - fibers can leak
       result <- fib.join
-    } yield result
+    yield result
 
     computation.flatMap {
       case Succeeded(fa) => fa
