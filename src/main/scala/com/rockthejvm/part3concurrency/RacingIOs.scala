@@ -89,8 +89,22 @@ object RacingIOs extends IOApp.Simple:
   def simpleRace[A, B](ioa: IO[A], iob: IO[B]): IO[Either[A, B]] =
     IO.racePair(ioa, iob)
       .flatMap {
-        case Left((Outcome.Succeeded(fa), fibB)) =>
-          fibB.cancel >> fa.map(Left(_))
+        case (Left(outA, fibB)) =>
+          outA match
+            case Outcome.Succeeded(fa) =>
+              fibB.cancel >> fa.map(Left(_))
+            case Outcome.Errored(e) =>
+              fibB.cancel >> IO.raiseError(e)
+            case Outcome.Canceled() =>
+              fibB.join.flatMap {
+                case Outcome.Succeeded(effectB) =>
+                  effectB.map(Right(_))
+                case Outcome.Errored(e) =>
+                  IO.raiseError(e)
+                case Outcome.Canceled() =>
+                  IO.raiseError(new RuntimeException("Both computations canceled"))
+
+              }
         case Right((fibA, Outcome.Succeeded(fb))) =>
           fibA.cancel >> fb.map(Right(_))
         case _ =>
