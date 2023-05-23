@@ -89,15 +89,51 @@ object CancellfingIOs extends IOApp.Simple:
   val authProgram =
     for
       authFib <- authFlow.start
-      _ <- IO.sleep(3.seconds) >> IO("Authentication timed out. Attempting cancel...").debug >> authFib.cancel
+      _ <- IO.sleep(3.seconds) >> IO(
+        "Authentication timed out. Attempting cancel..."
+      ).debug >> authFib.cancel
       _ <- authFib.join
     yield ()
 
   /*
     Uncancelable calls are MASKS which suppress cancellation
     Poll calls are "gaps opened" in the uncancelable region
-  */  
+   */
 
-  override def run: IO[Unit] = authProgram
+  /** Exercises
+    */
+  // 1
+  val cancelBeforeMol =
+    IO.canceled >> IO(42).debug
+
+  val uncancelableMol =
+    IO.uncancelable(_ => cancelBeforeMol)
+
+  // 2
+  val invincibleAuthProgram =
+    for
+      authFib <- IO.uncancelable(_ => authFlow).start
+      _ <- IO.sleep(3.seconds) >> IO(
+        "Authentication timeout, attempting cancel..."
+      ).debug >> authFib.cancel
+      _ <- authFib.join
+    yield ()
+
+  // 3
+  def threeStepProgram(): IO[Unit] =
+    val sequence = IO.uncancelable { poll =>
+      poll(IO("cancelable").debug >> IO.sleep(1.second)) >>
+        IO("Uncancelable").debug >> IO.sleep(1.second) >>
+        poll(IO("second cancelable").debug >> IO.sleep(1.second))
+    }
+
+    for
+      fib <- sequence.start
+      _   <- IO.sleep(1500.millis) >> IO("CANCELING").debug >> fib.cancel
+      _   <- fib.join
+    yield ()
+
+  override def run: IO[Unit] =
+    threeStepProgram().void
 
 end CancellfingIOs
