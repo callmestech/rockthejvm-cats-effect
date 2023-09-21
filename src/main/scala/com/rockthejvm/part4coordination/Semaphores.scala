@@ -7,7 +7,6 @@ import cats.effect.std.Semaphore
 import scala.util.Random
 import com.rockthejvm.utils.debug
 import scala.concurrent.duration.*
-import com.rockthejvm.part2effects.IOIntroduction.forever
 
 object Semaphores extends IOApp.Simple:
 
