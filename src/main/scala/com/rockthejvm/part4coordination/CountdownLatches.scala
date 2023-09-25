@@ -14,6 +14,8 @@ import com.rockthejvm.part4coordination.CountdownLatches.FileServer.writeToFile
 import scala.io.Source
 import cats.effect.kernel.Resource
 import scala.util.Random
+import cats.effect.kernel.Deferred
+import scala.collection.immutable.Queue
 object CountdownLatches extends IOApp.Simple:
 
   // CD Latches are a coordination primitive initialized with a count.
@@ -103,7 +105,7 @@ object CountdownLatches extends IOApp.Simple:
   def downloadFile(fileName: String, destFolder: String): IO[Unit] =
     def createFileDownloaderTask(
         id: Int,
-        latch: CountDownLatch[IO],
+        latch: CDLatch, // CountDownLatch[IO],
         filename: String,
         destFolder: String
     ): IO[Unit] =
@@ -120,7 +122,7 @@ object CountdownLatches extends IOApp.Simple:
 
     for
       n     <- FileServer.getNumChunks
-      latch <- CountDownLatch[IO](n)
+      latch <- CDLatch.make(n) // CountDownLatch[IO](n)
       _     <- IO(s"Download started on $n fibers").debug
       _ <- (0 until n).toList.parTraverse(id =>
         createFileDownloaderTask(id, latch, fileName, destFolder)
@@ -134,6 +136,40 @@ object CountdownLatches extends IOApp.Simple:
       )
       _ <- IO("File downloaded").debug
     yield ()
+
+  /** Exercise: implement your own CD Latch with Ref and Deferred
+    */
+  abstract class CDLatch:
+    def release: IO[Unit]
+    def await: IO[Unit]
+
+  object CDLatch:
+    type Signal = Deferred[IO, Unit]
+
+    private case class State(signal: Signal, count: Int)
+
+    def make(count: Int): IO[CDLatch] =
+      for
+        signal <- IO.deferred[Unit]
+        ref    <- IO.ref(State(signal = signal, count = count))
+      yield {
+        new CDLatch:
+          override def await: IO[Unit] =
+            ref.get.flatMap {
+              case State(_, 0) =>
+                IO.unit
+              case _ =>
+                signal.get
+            }
+
+          override def release: IO[Unit] =
+            ref.modify {
+              case State(signal, 1) =>
+                (State(signal, 0), signal.complete(()))
+              case State(signal, count) =>
+                (State(signal, if count > 1 then count - 1 else count), IO.unit)
+            }
+      }
 
   override def run: IO[Unit] =
     downloadFile("myScalafile.txt", "src/main/resources")
