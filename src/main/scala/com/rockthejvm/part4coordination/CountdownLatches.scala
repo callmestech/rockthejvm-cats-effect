@@ -163,12 +163,18 @@ object CountdownLatches extends IOApp.Simple:
             }
 
           override def release: IO[Unit] =
-            ref.modify {
-              case State(signal, 1) =>
-                (State(signal, 0), signal.complete(()))
-              case State(signal, count) =>
-                (State(signal, if count > 1 then count - 1 else count), IO.unit)
-            }
+            ref
+              .modify {
+                case State(signal, 1) =>
+                  (State(signal, 0), signal.complete(()).void)
+                case State(signal, count) =>
+                  (
+                    State(signal, if count > 1 then count - 1 else count),
+                    IO.unit
+                  )
+              }
+              .flatten
+              .uncancelable
       }
 
   override def run: IO[Unit] =
