@@ -1,5 +1,6 @@
 package com.rockthejvm.part4coordination
 
+import cats.syntax.parallel.*
 import cats.effect.IOApp
 import cats.effect.IO
 
@@ -22,7 +23,7 @@ object CyclicBarriers extends IOApp.Simple:
    * Any further fiber will again block until we have exactly N fibers waiting.
    * */
 
-  def createUser(id: Int, barrier: CyclicBarrier[IO]): IO[Unit] =
+  def createUser(id: Int, barrier: CBarrier): IO[Unit] =
     for
       _ <- IO.sleep((Random.nextDouble() * 500).toInt.millis)
       _ <- IO(
@@ -33,6 +34,15 @@ object CyclicBarriers extends IOApp.Simple:
       _ <-
         barrier.await // block the fiber when there are exactly N users waiting
       _ <- IO(s"[user $id] OMG this is so cool!").debug
+    yield ()
+
+  val openNetwork: IO[Unit] =
+    for
+      _ <- IO(
+        "[announcer] The Rock the JVM social network is up for registration! Launching when we have 10 users!"
+      ).debug
+      barrier <- CBarrier.make(10)
+      _       <- (1 to 14).toList.parTraverse(id => createUser(id, barrier))
     yield ()
 
   abstract class CBarrier:
@@ -63,17 +73,5 @@ object CyclicBarriers extends IOApp.Simple:
 
   end CBarrier
 
-  def task(id: Int, barrier: CBarrier): IO[Unit] =
-    for
-      _ <- IO(s"[task $id] Prepare...").debug
-      _ <- barrier.await
-      _ <- IO(s"[task $id] Go go go!").debug
-    yield ()
-
-  import cats.syntax.parallel.*
-
   override def run: IO[Unit] =
-    for
-      barrier <- CBarrier.make(3)
-      _       <- (1 to 6).toList.parTraverse(id => task(id, barrier))
-    yield ()
+    openNetwork
