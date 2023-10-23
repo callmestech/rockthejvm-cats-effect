@@ -55,8 +55,13 @@ object Mutex:
       override def acquire: IO[Unit] =
         def cleanup(signal: Signal) =
           ref.modify { case State(locked, waiting) =>
-            val newQueue = waiting.filterNot(_ eq signal)
-            State(locked, newQueue) -> release
+            val newQueue   = waiting.filterNot(_ eq signal)
+            val isBlocking = waiting.exists(_ eq signal)
+            val decision =
+              if isBlocking
+              then IO.unit
+              else release
+            State(locked, newQueue) -> decision
           }.flatten
 
         IO.uncancelable { poll =>
@@ -145,5 +150,32 @@ object MutexPlayground extends IOApp.Simple:
       )
     yield tasks
 
+  val demoCancelWhileBlocked =
+    for
+      mutex <- Mutex.make
+      fib1 <- (
+        IO("[fib 1] getting mutex").debug >>
+          mutex.acquire >>
+          IO("[fib 1] got the mutex, never releasing").debug >> IO.never
+      ).start
+      fib2 <- (
+        IO("[fib 2] sleeping").debug >> IO.sleep(1.second) >>
+          IO("[fib 2] trying to get the mutex").debug >>
+          mutex.acquire.onCancel(IO("[fib 2] being cancelled").debug.void) >>
+          IO("[fib 2] acquired mutex").debug
+      ).start
+      fib3 <- (
+        IO("[fib 3] sleeping").debug >>
+          IO.sleep(1500.millis) >>
+          IO("[fib 3] trying to get the mutex").debug >>
+          mutex.acquire >>
+          IO("[fib 3] if this shows, then FAIL").debug
+      ).start
+      _ <- IO.sleep(2.seconds) >> IO("Cancelling fib 2!").debug >> fib2.cancel
+      _ <- fib1.join
+      _ <- fib2.join
+      _ <- fib3.join
+    yield ()
+
   override def run: IO[Unit] =
-    demoCancellingTasks.void
+    demoCancelWhileBlocked.void

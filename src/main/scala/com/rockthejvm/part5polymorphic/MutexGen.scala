@@ -62,8 +62,14 @@ object MutexGen:
       override def acquire: F[Unit] =
         def cleanup(signal: Signal[F]) =
           ref.modify { case State(locked, waiting) =>
-            val newQueue = waiting.filterNot(_ eq signal)
-            State(locked, newQueue) -> release
+            val newQueue   = waiting.filterNot(_ eq signal)
+            val isBlocking = waiting.exists(_ eq signal)
+            val decision =
+              if isBlocking
+              then C.unit
+              else release
+
+            State(locked, newQueue) -> decision
           }.flatten
 
         C.uncancelable { poll =>
